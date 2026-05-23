@@ -47,7 +47,7 @@ export default function AlimentacionScreen() {
 
     try {
       const response = await client.chat.complete({
-        model: "mistral-large-latest",
+        model: "mistral-small-latest",
         responseFormat: { type: "json_object" },
         messages: [{ role: "user", content: prompt }]
       });
