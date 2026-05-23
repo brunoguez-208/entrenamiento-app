@@ -1,20 +1,121 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Mistral } from "@mistralai/mistralai";
-import { useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useState, useRef } from "react";
+import {
+  ActivityIndicator, Alert, ScrollView, StyleSheet, Text,
+  TextInput, TouchableOpacity, View, Animated, Dimensions
+} from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 
 const API_KEY = "bSJ9FpFxEVb2R84Gwl7wra86l9x97nwO";
 const client = new Mistral({ apiKey: API_KEY });
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const DIAS_FULL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-
 const NIVELES = [
   { id: "nuevo", label: "Soy nuevo", desc: "Empecé hace poco o nunca entrené" },
   { id: "intermedio", label: "Tengo experiencia", desc: "Entreno hace algunos meses o años" },
   { id: "avanzado", label: "Soy avanzado", desc: "Llevo años entrenando en serio" },
 ];
+
+function DiaCard({ diaRutina, index, total, onPrev, onNext, theme }: any) {
+  const s = cardStyles(theme);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  const animateTransition = (direction: number, callback: () => void) => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: direction * -30, duration: 150, useNativeDriver: true }),
+    ]).start(() => {
+      callback();
+      slideAnim.setValue(direction * 30);
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    });
+  };
+
+  const handlePrev = () => animateTransition(-1, onPrev);
+  const handleNext = () => animateTransition(1, onNext);
+
+  return (
+    <View style={s.wrapper}>
+      {/* Dots */}
+      <View style={s.dots}>
+        {Array.from({ length: total }).map((_, i) => (
+          <View key={i} style={[s.dot, i === index && s.dotActive]} />
+        ))}
+      </View>
+
+      {/* Card animada */}
+      <Animated.View style={[s.card, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+        {/* Header del día */}
+        <View style={s.cardHeader}>
+          <View style={s.cardHeaderLeft}>
+            <Text style={s.diaLabel}>DÍA {index + 1} DE {total}</Text>
+            <Text style={s.diaNombre}>{diaRutina.dia}</Text>
+            <View style={s.enfoqueBadge}>
+              <Text style={s.enfoqueText}>{diaRutina.enfoque}</Text>
+            </View>
+          </View>
+          <View style={s.cardHeaderRight}>
+            <Text style={s.ejercicioCount}>{diaRutina.ejercicios?.length}</Text>
+            <Text style={s.ejercicioCountLabel}>ejercicios</Text>
+          </View>
+        </View>
+
+        {/* Lista de ejercicios */}
+        <ScrollView style={s.ejerciciosList} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+          {diaRutina.ejercicios?.map((ej: any, i: number) => (
+            <View key={i} style={[s.ejercicioRow, i === diaRutina.ejercicios.length - 1 && s.ejercicioRowLast]}>
+              <View style={s.ejercicioNum}>
+                <Text style={s.ejercicioNumText}>{i + 1}</Text>
+              </View>
+              <View style={s.ejercicioBody}>
+                <View style={s.ejercicioTop}>
+                  <Text style={s.ejercicioNombre}>{ej.nombre}</Text>
+                  <Text style={s.ejercicioSeries}>{ej.series}×{ej.reps}</Text>
+                </View>
+                <View style={s.ejercicioMeta}>
+                  {ej.descanso && (
+                    <View style={s.badge}>
+                      <Text style={s.badgeText}>⏱ {ej.descanso}</Text>
+                    </View>
+                  )}
+                </View>
+                {ej.nota && <Text style={s.ejercicioNota}>{ej.nota}</Text>}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      </Animated.View>
+
+      {/* Navegación */}
+      <View style={s.nav}>
+        <TouchableOpacity
+          style={[s.navBtn, index === 0 && s.navBtnDisabled]}
+          onPress={handlePrev}
+          disabled={index === 0}
+          activeOpacity={0.7}
+        >
+          <Text style={[s.navBtnText, index === 0 && s.navBtnTextDisabled]}>← Anterior</Text>
+        </TouchableOpacity>
+
+        <Text style={s.navCounter}>{index + 1} / {total}</Text>
+
+        <TouchableOpacity
+          style={[s.navBtn, index === total - 1 && s.navBtnDisabled]}
+          onPress={handleNext}
+          disabled={index === total - 1}
+          activeOpacity={0.7}
+        >
+          <Text style={[s.navBtnText, index === total - 1 && s.navBtnTextDisabled]}>Siguiente →</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
 export default function EntrenamientoScreen() {
   const { theme } = useTheme();
@@ -25,6 +126,7 @@ export default function EntrenamientoScreen() {
   const [nivel, setNivel] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [rutina, setRutina] = useState<any>(null);
+  const [diaActivo, setDiaActivo] = useState(0);
 
   const toggleDia = (dia: string) => {
     setDiasSeleccionados(prev =>
@@ -36,11 +138,9 @@ export default function EntrenamientoScreen() {
     if (!objetivo.trim() || diasSeleccionados.length === 0 || !nivel) return;
     setCargando(true);
     setRutina(null);
+    setDiaActivo(0);
 
     const nivelLabel = NIVELES.find(n => n.id === nivel)?.label || nivel;
-    const diasOrdenados = DIAS_FULL.filter(d =>
-      diasSeleccionados.includes(d.substring(0, 3) === "Mié" ? "Mié" : d.substring(0, 3))
-    );
 
     const prompt = `Eres un coach de gimnasio experto. Generá un plan de entrenamiento COMPLETO y PROFESIONAL.
 
@@ -50,15 +150,15 @@ Datos del usuario:
 - Nivel: ${nivelLabel}
 
 REGLAS OBLIGATORIAS:
-- Cada día de entrenamiento debe tener entre 5 y 7 ejercicios
-- Los ejercicios deben estar ESPECÍFICAMENTE orientados al objetivo: ${objetivo}
-- Distribuí los grupos musculares de forma inteligente según los días disponibles
+- Cada día debe tener entre 5 y 7 ejercicios
+- Los ejercicios deben estar orientados al objetivo: ${objetivo}
+- Distribuí los grupos musculares inteligentemente según los días
 - Incluí series, repeticiones Y tiempo de descanso para cada ejercicio
-- Las notas deben ser técnicas y útiles (forma, respiración, variantes)
+- Las notas deben ser técnicas y útiles
 
 Respondé ÚNICAMENTE con JSON válido, sin markdown:
 {
-  "consejo": "Un consejo clave personalizado para este usuario",
+  "consejo": "Un consejo clave personalizado",
   "dias": [
     {
       "dia": "Lunes",
@@ -69,7 +169,7 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
           "series": "4",
           "reps": "8-10",
           "descanso": "90s",
-          "nota": "Bajá la barra hasta rozar el pecho, explosivo hacia arriba"
+          "nota": "Bajá la barra hasta rozar el pecho"
         }
       ]
     }
@@ -96,7 +196,7 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
           diasRutina: parsed.dias,
         });
       } else throw new Error("Respuesta inválida");
-    } catch (err) {
+    } catch {
       Alert.alert("Error", "No se pudo generar la rutina. Revisá tu conexión.");
     } finally {
       setCargando(false);
@@ -125,12 +225,11 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
     <ScrollView style={s.container} contentContainerStyle={s.content}>
       <View style={s.inner}>
 
-        {/* Objetivo */}
         <View style={s.section}>
           <Text style={s.sectionLabel}>Objetivo</Text>
           <TextInput
             style={s.input}
-            placeholder="Ej: ganar masa muscular, perder grasa, mejorar resistencia..."
+            placeholder="Ej: ganar masa muscular, perder grasa..."
             placeholderTextColor={theme.textMuted}
             value={objetivo}
             onChangeText={setObjetivo}
@@ -138,7 +237,6 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
           />
         </View>
 
-        {/* Días */}
         <View style={s.section}>
           <Text style={s.sectionLabel}>¿Qué días podés entrenar?</Text>
           <Text style={s.sectionHint}>Seleccioná todos los días disponibles</Text>
@@ -164,7 +262,6 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
           )}
         </View>
 
-        {/* Nivel */}
         <View style={s.section}>
           <Text style={s.sectionLabel}>¿Cuánta experiencia tenés?</Text>
           <View style={s.nivelesCol}>
@@ -192,29 +289,25 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
           </View>
         </View>
 
-        {/* Botón */}
         <TouchableOpacity
           style={[s.btnGenerar, !canGenerate && s.btnGenerarOff]}
           onPress={generarRutinaConIA}
           disabled={!canGenerate}
           activeOpacity={0.8}
         >
-          {cargando
-            ? (
-              <View style={s.loadingRow}>
-                <ActivityIndicator color={theme.bg} size="small" />
-                <Text style={[s.btnGenerarText, { marginLeft: 10 }]}>Armando tu rutina...</Text>
-              </View>
-            )
-            : <Text style={s.btnGenerarText}>Generar mi rutina personalizada</Text>
-          }
+          {cargando ? (
+            <View style={s.loadingRow}>
+              <ActivityIndicator color={theme.bg} size="small" />
+              <Text style={[s.btnGenerarText, { marginLeft: 10 }]}>Armando tu rutina...</Text>
+            </View>
+          ) : (
+            <Text style={s.btnGenerarText}>Generar mi rutina personalizada</Text>
+          )}
         </TouchableOpacity>
 
-        {/* Resultado */}
         {rutina && (
           <View style={s.resultado}>
-
-            {/* Header */}
+            {/* Header resumen */}
             <View style={s.resultadoHeader}>
               <Text style={s.resultadoEyebrow}>{rutina.nivel} · {rutina.dias.length} días/sem</Text>
               <Text style={s.resultadoTitle}>{rutina.objetivo}</Text>
@@ -226,36 +319,20 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
               )}
             </View>
 
-            {/* Días */}
-            {rutina.diasRutina?.map((diaRutina: any, di: number) => (
-              <View key={di} style={s.diaBlock}>
-                <View style={s.diaHeader}>
-                  <Text style={s.diaNombre}>{diaRutina.dia}</Text>
-                  <Text style={s.diaEnfoque}>{diaRutina.enfoque}</Text>
-                </View>
-
-                {diaRutina.ejercicios?.map((ej: any, ei: number) => (
-                  <View key={ei} style={[s.ejercicio, ei === diaRutina.ejercicios.length - 1 && s.ejercicioLast]}>
-                    <View style={s.ejercicioNum}>
-                      <Text style={s.ejercicioNumText}>{ei + 1}</Text>
-                    </View>
-                    <View style={s.ejercicioBody}>
-                      <View style={s.ejercicioRow}>
-                        <Text style={s.ejercicioNombre}>{ej.nombre}</Text>
-                        <Text style={s.ejercicioSeries}>{ej.series}×{ej.reps}</Text>
-                      </View>
-                      <View style={s.ejercicioMeta}>
-                        {ej.descanso && <Text style={s.ejercicioDescanso}>⏱ {ej.descanso}</Text>}
-                      </View>
-                      {ej.nota && <Text style={s.ejercicioNota}>{ej.nota}</Text>}
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ))}
+            {/* Cards de días */}
+            {rutina.diasRutina?.length > 0 && (
+              <DiaCard
+                diaRutina={rutina.diasRutina[diaActivo]}
+                index={diaActivo}
+                total={rutina.diasRutina.length}
+                onPrev={() => setDiaActivo(i => Math.max(0, i - 1))}
+                onNext={() => setDiaActivo(i => Math.min(rutina.diasRutina.length - 1, i + 1))}
+                theme={theme}
+              />
+            )}
 
             <TouchableOpacity style={s.btnGuardar} onPress={guardarEnFavoritos} activeOpacity={0.7}>
-              <Text style={s.btnGuardarText}>Guardar plan</Text>
+              <Text style={s.btnGuardarText}>Guardar plan completo</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -264,6 +341,70 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
     </ScrollView>
   );
 }
+
+const cardStyles = (t: any) => StyleSheet.create({
+  wrapper: { paddingHorizontal: 16, paddingBottom: 8 },
+  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginBottom: 14 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: t.border },
+  dotActive: { width: 20, backgroundColor: t.text },
+
+  card: {
+    backgroundColor: t.bgSubtle,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.border,
+    overflow: "hidden",
+    minHeight: 320,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    padding: 18,
+    backgroundColor: t.text,
+  },
+  cardHeaderLeft: { flex: 1 },
+  cardHeaderRight: { alignItems: "center", marginLeft: 12 },
+  diaLabel: { fontSize: 10, fontWeight: "700", color: t.dark ? t.textMuted : "rgba(255,255,255,0.6)", letterSpacing: 1.5, marginBottom: 4 },
+  diaNombre: { fontSize: 22, fontWeight: "800", color: t.bg, marginBottom: 8 },
+  enfoqueBadge: { backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: "flex-start" },
+  enfoqueText: { fontSize: 12, color: t.bg, fontWeight: "600" },
+  ejercicioCount: { fontSize: 28, fontWeight: "800", color: t.bg, lineHeight: 32 },
+  ejercicioCountLabel: { fontSize: 11, color: t.dark ? t.textMuted : "rgba(255,255,255,0.6)", fontWeight: "600" },
+
+  ejerciciosList: { maxHeight: 340, padding: 4 },
+  ejercicioRow: {
+    flexDirection: "row", padding: 14,
+    borderBottomWidth: 1, borderBottomColor: t.border,
+    gap: 12, alignItems: "flex-start",
+  },
+  ejercicioRowLast: { borderBottomWidth: 0 },
+  ejercicioNum: {
+    width: 26, height: 26, borderRadius: 8,
+    backgroundColor: t.bgCard,
+    alignItems: "center", justifyContent: "center",
+  },
+  ejercicioNumText: { fontSize: 11, fontWeight: "800", color: t.textMuted },
+  ejercicioBody: { flex: 1 },
+  ejercicioTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 5 },
+  ejercicioNombre: { fontSize: 14, fontWeight: "700", color: t.text, flex: 1, marginRight: 8 },
+  ejercicioSeries: { fontSize: 13, fontWeight: "800", color: t.accentPurple },
+  ejercicioMeta: { flexDirection: "row", gap: 8, marginBottom: 4 },
+  badge: { backgroundColor: t.bgCard, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgeText: { fontSize: 11, color: t.textMuted, fontWeight: "600" },
+  ejercicioNota: { fontSize: 12, color: t.textSecondary, lineHeight: 17, fontStyle: "italic" },
+
+  nav: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4, paddingTop: 14 },
+  navBtn: {
+    paddingVertical: 10, paddingHorizontal: 16,
+    backgroundColor: t.bgCard, borderRadius: 10,
+    borderWidth: 1, borderColor: t.border,
+  },
+  navBtnDisabled: { opacity: 0.3 },
+  navBtnText: { fontSize: 13, fontWeight: "700", color: t.text },
+  navBtnTextDisabled: { color: t.textMuted },
+  navCounter: { fontSize: 13, fontWeight: "600", color: t.textMuted },
+});
 
 const styles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
@@ -319,7 +460,7 @@ const styles = (t: any) => StyleSheet.create({
 
   resultado: {
     backgroundColor: t.bgCard, borderRadius: 16,
-    borderWidth: 1, borderColor: t.border, overflow: "hidden",
+    borderWidth: 1, borderColor: t.border, overflow: "hidden", paddingBottom: 8,
   },
   resultadoHeader: { padding: 20, paddingBottom: 16 },
   resultadoEyebrow: { fontSize: 11, fontWeight: "700", color: t.textMuted, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4 },
@@ -328,36 +469,9 @@ const styles = (t: any) => StyleSheet.create({
   consejoIcon: { fontSize: 14 },
   consejoText: { flex: 1, fontSize: 13, color: t.textSecondary, lineHeight: 19 },
 
-  diaBlock: { borderTopWidth: 1, borderTopColor: t.border },
-  diaHeader: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 20, paddingVertical: 12,
-    backgroundColor: t.bgSubtle,
-  },
-  diaNombre: { fontSize: 13, fontWeight: "800", color: t.text, textTransform: "uppercase", letterSpacing: 1 },
-  diaEnfoque: { fontSize: 12, color: t.textMuted, fontWeight: "600" },
-
-  ejercicio: {
-    flexDirection: "row", paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: t.borderLight, gap: 12,
-  },
-  ejercicioLast: { borderBottomWidth: 0 },
-  ejercicioNum: {
-    width: 26, height: 26, borderRadius: 8,
-    backgroundColor: t.bgSubtle,
-    alignItems: "center", justifyContent: "center", marginTop: 1,
-  },
-  ejercicioNumText: { fontSize: 11, fontWeight: "800", color: t.textMuted },
-  ejercicioBody: { flex: 1 },
-  ejercicioRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  ejercicioNombre: { fontSize: 14, fontWeight: "700", color: t.text, flex: 1, marginRight: 8 },
-  ejercicioSeries: { fontSize: 13, fontWeight: "800", color: t.accentPurple },
-  ejercicioMeta: { flexDirection: "row", gap: 12, marginBottom: 4 },
-  ejercicioDescanso: { fontSize: 12, color: t.textMuted },
-  ejercicioNota: { fontSize: 12, color: t.textSecondary, lineHeight: 17, fontStyle: "italic" },
-
   btnGuardar: {
-    margin: 16, borderWidth: 1, borderColor: t.border,
+    marginHorizontal: 16, marginTop: 8,
+    borderWidth: 1, borderColor: t.border,
     borderRadius: 10, padding: 13, alignItems: "center",
   },
   btnGuardarText: { fontWeight: "600", color: t.textSecondary, fontSize: 14 },
