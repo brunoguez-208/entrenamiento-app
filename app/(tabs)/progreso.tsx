@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useUser } from "../../context/UserContext";
-import PaywallScreen from "../../components/PaywallScreen";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { useUser } from "../../context/UserContext";
+import PaywallScreen from "../../components/PaywallScreen";
 
 interface FotoProgreso {
   id: string;
