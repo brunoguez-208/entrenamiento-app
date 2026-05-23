@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Animated, StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { Animated, StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
@@ -20,6 +20,7 @@ export default function FavoritosScreen() {
   const { theme } = useTheme();
   const s = styles(theme);
   const [items, setItems] = useState<any[]>([]);
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -29,21 +30,26 @@ export default function FavoritosScreen() {
           setItems(data ? JSON.parse(data) : []);
         } catch {}
       })();
+      // Reset confirm state when tab is focused
+      setConfirmandoId(null);
     }, [])
   );
 
   const eliminar = async (id: string) => {
-    Alert.alert("Eliminar", "¿Seguro que querés borrar este plan?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Eliminar", style: "destructive",
-        onPress: async () => {
-          const filtrados = items.filter(i => i.id !== id);
-          setItems(filtrados);
-          await AsyncStorage.setItem("favoritos", JSON.stringify(filtrados));
-        }
-      }
-    ]);
+    const filtrados = items.filter(i => i.id !== id);
+    setItems(filtrados);
+    setConfirmandoId(null);
+    await AsyncStorage.setItem("favoritos", JSON.stringify(filtrados));
+  };
+
+  const handleDeletePress = (id: string) => {
+    if (confirmandoId === id) {
+      eliminar(id);
+    } else {
+      setConfirmandoId(id);
+      // Auto-cancel after 3 seconds
+      setTimeout(() => setConfirmandoId(prev => prev === id ? null : prev), 3000);
+    }
   };
 
   return (
@@ -78,55 +84,66 @@ export default function FavoritosScreen() {
               </View>
             </FadeInView>
 
-            {items.map((item, idx) => (
-              <FadeInView key={item.id} delay={80 + idx * 60}>
-                <View style={s.card}>
-                  <View style={[s.cardBar, { backgroundColor: item.tipo === "entrenamiento" ? theme.accentPurple : theme.accentGreen }]} />
-                  <View style={s.cardBody}>
-                    <View style={s.cardHeader}>
-                      <View style={s.cardHeaderLeft}>
-                        <Text style={s.cardEmoji}>{item.tipo === "entrenamiento" ? "🏋️" : "🥗"}</Text>
-                        <View>
-                          <Text style={[s.cardType, { color: item.tipo === "entrenamiento" ? theme.accentPurple : theme.accentGreen }]}>
-                            {item.tipo === "entrenamiento" ? "ENTRENAMIENTO" : "NUTRICIÓN"}
-                          </Text>
-                          <Text style={s.cardTitle}>
-                            {item.tipo === "entrenamiento" ? item.objetivo : `Menú · ${item.platos?.length || 0} platos`}
-                          </Text>
+            {items.map((item, idx) => {
+              const confirmando = confirmandoId === item.id;
+              return (
+                <FadeInView key={item.id} delay={80 + idx * 60}>
+                  <View style={s.card}>
+                    <View style={[s.cardBar, { backgroundColor: item.tipo === "entrenamiento" ? theme.accentPurple : theme.accentGreen }]} />
+                    <View style={s.cardBody}>
+                      <View style={s.cardHeader}>
+                        <View style={s.cardHeaderLeft}>
+                          <Text style={s.cardEmoji}>{item.tipo === "entrenamiento" ? "🏋️" : "🥗"}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[s.cardType, { color: item.tipo === "entrenamiento" ? theme.accentPurple : theme.accentGreen }]}>
+                              {item.tipo === "entrenamiento" ? "ENTRENAMIENTO" : "NUTRICIÓN"}
+                            </Text>
+                            <Text style={s.cardTitle} numberOfLines={1}>
+                              {item.tipo === "entrenamiento" ? item.objetivo : `Menú · ${item.platos?.length || 0} platos`}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
-                      <TouchableOpacity onPress={() => eliminar(item.id)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-                        <Text style={s.deleteIcon}>×</Text>
-                      </TouchableOpacity>
-                    </View>
 
-                    {item.tipo === "entrenamiento" ? (
-                      <View style={s.detailsBlock}>
-                        <View style={s.tagRow}>
-                          <View style={s.tag}><Text style={s.tagText}>{item.nivel}</Text></View>
-                          <View style={s.tag}><Text style={s.tagText}>{item.dias?.length || item.dias} días/sem</Text></View>
+                        {/* Delete button — dos pasos para evitar el problema de Alert en web */}
+                        <TouchableOpacity
+                          onPress={() => handleDeletePress(item.id)}
+                          style={[s.deleteBtn, confirmando && s.deleteBtnConfirm]}
+                          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                        >
+                          <Text style={[s.deleteIcon, confirmando && s.deleteIconConfirm]}>
+                            {confirmando ? "¿Borrar?" : "×"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {item.tipo === "entrenamiento" ? (
+                        <View style={s.detailsBlock}>
+                          <View style={s.tagRow}>
+                            <View style={s.tag}><Text style={s.tagText}>{item.nivel}</Text></View>
+                            <View style={s.tag}><Text style={s.tagText}>{item.dias?.length || item.dias} días/sem</Text></View>
+                          </View>
+                          {item.diasRutina?.slice(0, 2).map((d: any, i: number) => (
+                            <Text key={i} style={s.itemText}>· {d.dia} — {d.enfoque}</Text>
+                          ))}
+                          {item.diasRutina?.length > 2 && (
+                            <Text style={s.moreText}>+{item.diasRutina.length - 2} días más</Text>
+                          )}
                         </View>
-                        {item.diasRutina?.slice(0, 2).map((d: any, i: number) => (
-                          <Text key={i} style={s.itemText}>· {d.dia} — {d.enfoque}</Text>
-                        ))}
-                        {item.diasRutina?.length > 2 && (
-                          <Text style={s.moreText}>+{item.diasRutina.length - 2} días más</Text>
-                        )}
-                      </View>
-                    ) : (
-                      <View style={s.detailsBlock}>
-                        {item.platos?.slice(0, 3).map((p: any, i: number) => (
-                          <Text key={i} style={s.itemText}>· {p.nombrePlato} <Text style={s.itemMeta}>({p.momento})</Text></Text>
-                        ))}
-                        {item.platos?.length > 3 && (
-                          <Text style={s.moreText}>+{item.platos.length - 3} platos más</Text>
-                        )}
-                      </View>
-                    )}
+                      ) : (
+                        <View style={s.detailsBlock}>
+                          {item.platos?.slice(0, 3).map((p: any, i: number) => (
+                            <Text key={i} style={s.itemText}>· {p.nombrePlato} <Text style={s.itemMeta}>({p.momento})</Text></Text>
+                          ))}
+                          {item.platos?.length > 3 && (
+                            <Text style={s.moreText}>+{item.platos.length - 3} platos más</Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
                   </View>
-                </View>
-              </FadeInView>
-            ))}
+                </FadeInView>
+              );
+            })}
           </>
         )}
       </View>
@@ -162,7 +179,11 @@ const styles = (t: any) => StyleSheet.create({
   cardEmoji: { fontSize: 24 },
   cardType: { fontSize: 10, fontWeight: "700", letterSpacing: 1.5, marginBottom: 2 },
   cardTitle: { fontSize: 15, fontWeight: "700", color: t.text },
-  deleteIcon: { fontSize: 22, color: t.textMuted, lineHeight: 22 },
+
+  deleteBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: t.bgSubtle, borderWidth: 1, borderColor: t.border },
+  deleteBtnConfirm: { backgroundColor: "#fee2e2", borderColor: "#fca5a5" },
+  deleteIcon: { fontSize: 16, color: t.textMuted, fontWeight: "700" },
+  deleteIconConfirm: { fontSize: 12, color: "#dc2626", fontWeight: "700" },
 
   detailsBlock: { gap: 4 },
   tagRow: { flexDirection: "row", gap: 6, marginBottom: 6 },
