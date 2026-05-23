@@ -1,71 +1,112 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
+
+function FadeInView({ delay = 0, children }: { delay?: number; children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 500, delay, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 500, delay, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      {children}
+    </Animated.View>
+  );
+}
 
 export default function HomeScreen() {
   const { theme } = useTheme();
   const s = styles(theme);
 
+  const CARDS = [
+    {
+      route: "/entrenamiento",
+      emoji: "🏋️",
+      title: "Entrenamiento",
+      desc: "Rutina semanal personalizada con IA según tu objetivo.",
+      accent: theme.accentPurple,
+      accentMuted: theme.accentPurpleMuted,
+    },
+    {
+      route: "/alimentacion",
+      emoji: "🥗",
+      title: "Nutrición",
+      desc: "Menú del día con platos que te gustan de verdad.",
+      accent: theme.accentGreen,
+      accentMuted: theme.accentGreenMuted,
+    },
+    {
+      route: "/favoritos",
+      emoji: "⭐",
+      title: "Mis Planes",
+      desc: "Revisá los planes que guardaste para seguir progresando.",
+      accent: theme.textMuted,
+      accentMuted: theme.bgSubtle,
+    },
+  ];
+
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
+      {/* Hero con imagen de fondo */}
+      <View style={s.heroWrapper}>
+        <Image
+          source={{ uri: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=900&q=80" }}
+          style={s.heroBg}
+          resizeMode="cover"
+        />
+        <View style={s.heroOverlay} />
+        <View style={s.heroContent}>
+          <FadeInView delay={0}>
+            <Text style={s.heroEyebrow}>BIENVENIDO 👋</Text>
+          </FadeInView>
+          <FadeInView delay={100}>
+            <Text style={s.heroTitle}>Tu cuerpo,{"\n"}tu plan.</Text>
+          </FadeInView>
+          <FadeInView delay={200}>
+            <Text style={s.heroSub}>IA que diseña rutinas y menús personalizados para vos.</Text>
+          </FadeInView>
+        </View>
+      </View>
+
       <View style={s.inner}>
-        <View style={s.hero}>
-          <Text style={s.heroEyebrow}>Bienvenido</Text>
-          <Text style={s.heroTitle}>Tu cuerpo,{"\n"}tu plan.</Text>
-          <Text style={s.heroSub}>
-            IA que diseña rutinas y menús personalizados para vos.
-          </Text>
-        </View>
+        <FadeInView delay={300}>
+          <Text style={s.sectionLabel}>¿Qué querés hacer hoy?</Text>
+        </FadeInView>
 
-        <View style={s.divider} />
+        {CARDS.map((card, i) => (
+          <FadeInView key={card.route} delay={380 + i * 80}>
+            <TouchableOpacity
+              style={s.card}
+              onPress={() => router.push(card.route as any)}
+              activeOpacity={0.75}
+            >
+              <View style={s.cardInner}>
+                <View style={[s.cardIcon, { backgroundColor: card.accentMuted }]}>
+                  <Text style={s.cardIconText}>{card.emoji}</Text>
+                </View>
+                <View style={s.cardText}>
+                  <Text style={s.cardTitle}>{card.title}</Text>
+                  <Text style={s.cardDesc}>{card.desc}</Text>
+                </View>
+                <Text style={[s.cardArrow, { color: card.accent }]}>→</Text>
+              </View>
+              <View style={[s.cardAccentBar, { backgroundColor: card.accent }]} />
+            </TouchableOpacity>
+          </FadeInView>
+        ))}
 
-        <Text style={s.sectionLabel}>¿Qué querés hoy?</Text>
-
-        <TouchableOpacity style={s.card} onPress={() => router.push("/entrenamiento")} activeOpacity={0.7}>
-          <View style={s.cardInner}>
-            <View style={[s.cardDot, { backgroundColor: theme.accentPurpleMuted }]}>
-              <Text style={s.cardDotText}>↑</Text>
-            </View>
-            <View style={s.cardText}>
-              <Text style={s.cardTitle}>Entrenamiento</Text>
-              <Text style={s.cardDesc}>Generá tu rutina semanal con IA según tu nivel y objetivo.</Text>
-            </View>
-            <Text style={[s.cardArrow, { color: theme.accentPurple }]}>→</Text>
+        <FadeInView delay={650}>
+          <View style={s.footer}>
+            <Text style={s.footerText}>Fitness AI · Powered by Mistral</Text>
           </View>
-          <View style={[s.cardAccent, { backgroundColor: theme.accentPurple }]} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={s.card} onPress={() => router.push("/alimentacion")} activeOpacity={0.7}>
-          <View style={s.cardInner}>
-            <View style={[s.cardDot, { backgroundColor: theme.accentGreenMuted }]}>
-              <Text style={s.cardDotText}>◇</Text>
-            </View>
-            <View style={s.cardText}>
-              <Text style={s.cardTitle}>Nutrición</Text>
-              <Text style={s.cardDesc}>Armá tu menú del día con platos que te gustan de verdad.</Text>
-            </View>
-            <Text style={[s.cardArrow, { color: theme.accentGreen }]}>→</Text>
-          </View>
-          <View style={[s.cardAccent, { backgroundColor: theme.accentGreen }]} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[s.card, s.cardSecondary]} onPress={() => router.push("/favoritos")} activeOpacity={0.7}>
-          <View style={s.cardInner}>
-            <View style={[s.cardDot, { backgroundColor: theme.bgSubtle }]}>
-              <Text style={s.cardDotText}>☆</Text>
-            </View>
-            <View style={s.cardText}>
-              <Text style={s.cardTitle}>Mis Planes</Text>
-              <Text style={s.cardDesc}>Revisá los planes que guardaste para seguir progresando.</Text>
-            </View>
-            <Text style={[s.cardArrow, { color: theme.textMuted }]}>→</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={s.footer}>
-          <Text style={s.footerText}>Fitness AI · Powered by Mistral</Text>
-        </View>
+        </FadeInView>
       </View>
     </ScrollView>
   );
@@ -73,24 +114,32 @@ export default function HomeScreen() {
 
 const styles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
-  content: { alignItems: "center", paddingBottom: 40 },
-  inner: { width: "100%", maxWidth: 600, padding: 24, paddingTop: 20 },
-  hero: { paddingTop: 12, paddingBottom: 28 },
-  heroEyebrow: { fontSize: 11, fontWeight: "700", color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 },
-  heroTitle: { fontSize: 38, fontWeight: "800", color: t.text, lineHeight: 44, letterSpacing: -0.5, marginBottom: 12 },
-  heroSub: { fontSize: 15, color: t.textSecondary, lineHeight: 22 },
-  divider: { height: 1, backgroundColor: t.border, marginBottom: 24 },
-  sectionLabel: { fontSize: 11, fontWeight: "700", color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 },
+  content: { alignItems: "center", paddingBottom: 48 },
+
+  heroWrapper: { width: "100%", height: 260, position: "relative", overflow: "hidden" },
+  heroBg: { position: "absolute", width: "100%", height: "100%" },
+  heroOverlay: {
+    position: "absolute", width: "100%", height: "100%",
+    backgroundColor: t.dark ? "rgba(0,0,0,0.65)" : "rgba(15,10,5,0.52)",
+  },
+  heroContent: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 28, paddingBottom: 32 },
+  heroEyebrow: { fontSize: 11, fontWeight: "700", color: "rgba(255,255,255,0.65)", letterSpacing: 2, marginBottom: 8 },
+  heroTitle: { fontSize: 40, fontWeight: "800", color: "#fff", lineHeight: 46, letterSpacing: -0.5, marginBottom: 8 },
+  heroSub: { fontSize: 14, color: "rgba(255,255,255,0.75)", lineHeight: 20 },
+
+  inner: { width: "100%", maxWidth: 600, padding: 24, paddingTop: 28 },
+  sectionLabel: { fontSize: 11, fontWeight: "700", color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 16 },
+
   card: { backgroundColor: t.bgCard, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: t.border, overflow: "hidden" },
-  cardSecondary: { backgroundColor: t.bgSubtle },
   cardInner: { flexDirection: "row", alignItems: "center", padding: 18, gap: 14 },
-  cardAccent: { height: 3 },
-  cardDot: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  cardDotText: { fontSize: 18, color: t.text },
+  cardAccentBar: { height: 3 },
+  cardIcon: { width: 44, height: 44, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  cardIconText: { fontSize: 20 },
   cardText: { flex: 1 },
   cardTitle: { fontSize: 16, fontWeight: "700", color: t.text, marginBottom: 3 },
   cardDesc: { fontSize: 13, color: t.textSecondary, lineHeight: 18 },
-  cardArrow: { fontSize: 20, fontWeight: "300" },
-  footer: { alignItems: "center", paddingTop: 32 },
+  cardArrow: { fontSize: 20 },
+
+  footer: { alignItems: "center", paddingTop: 28 },
   footerText: { fontSize: 11, color: t.textMuted, letterSpacing: 1 },
 });
