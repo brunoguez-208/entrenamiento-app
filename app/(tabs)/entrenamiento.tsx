@@ -6,6 +6,7 @@ import {
   TextInput, TouchableOpacity, View, Animated, Dimensions
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
+import { useUser } from "../../context/UserContext";
 
 const API_KEY = "bSJ9FpFxEVb2R84Gwl7wra86l9x97nwO";
 const client = new Mistral({ apiKey: API_KEY });
@@ -121,6 +122,7 @@ export default function EntrenamientoScreen() {
   const { theme } = useTheme();
   const s = styles(theme);
 
+  const { registrarEntrenamiento } = useUser();
   const [objetivo, setObjetivo] = useState("");
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
   const [nivel, setNivel] = useState<string | null>(null);
@@ -213,7 +215,8 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
       }
       favs.push(rutina);
       await AsyncStorage.setItem("favoritos", JSON.stringify(favs));
-      Alert.alert("Guardado", "Rutina añadida a tus planes.");
+      await registrarEntrenamiento();
+      Alert.alert("Guardado", "Rutina añadida a tus planes. 🔥 Racha actualizada!");
     } catch {
       Alert.alert("Error", "No se pudo guardar.");
     }

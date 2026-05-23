@@ -16,9 +16,13 @@ export const lightTheme = {
   accentGreenMuted: "#E8F2EE",
   accentPurple: "#3D2E8C",
   accentPurpleMuted: "#ECEAF8",
+  accentOrange: "#C4531A",
+  accentOrangeMuted: "#FDEEE6",
   tabBar: "#FFFFFF",
   tabBarBorder: "#E8E3DC",
   headerBg: "#F7F5F2",
+  premium: "#B8860B",
+  premiumMuted: "#FDF8E7",
 };
 
 export const darkTheme = {
@@ -37,9 +41,13 @@ export const darkTheme = {
   accentGreenMuted: "#1A2E25",
   accentPurple: "#8B7FD4",
   accentPurpleMuted: "#1E1B35",
+  accentOrange: "#E8824A",
+  accentOrangeMuted: "#2E1E14",
   tabBar: "#1C1B1A",
   tabBarBorder: "#2E2C2A",
   headerBg: "#111010",
+  premium: "#D4A017",
+  premiumMuted: "#2A2410",
 };
 
 export type Theme = typeof lightTheme;
@@ -57,8 +65,7 @@ const ThemeContext = createContext<ThemeContextType>({
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState(false);
   const theme = isDark ? darkTheme : lightTheme;
-  const toggleTheme = () => setIsDark((prev) => !prev);
-
+  const toggleTheme = () => setIsDark(prev => !prev);
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}

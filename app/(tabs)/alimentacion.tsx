@@ -3,6 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
+import { useUser } from "../../context/UserContext";
+import PaywallScreen from "../../components/PaywallScreen";
 
 const API_KEY = "bSJ9FpFxEVb2R84Gwl7wra86l9x97nwO";
 const client = new Mistral({ apiKey: API_KEY });
@@ -134,6 +136,9 @@ function DiaMenuCard({ diaMenu, index, total, onPrev, onNext, theme, onVerPlato 
 export default function AlimentacionScreen() {
   const { theme } = useTheme();
   const s = styles(theme);
+
+  const { appState } = useUser();
+  if (!appState.isPremium) return <PaywallScreen feature="Nutrición" />;
 
   const [quiere, setQuiere] = useState("");
   const [noQuiere, setNoQuiere] = useState("");
