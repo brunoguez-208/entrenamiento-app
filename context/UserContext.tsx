@@ -9,6 +9,7 @@ export interface UserProfile {
   altura: string;
   objetivo: string;
   restricciones: string;
+  fotoPerfil: string;
   nivelActividad: "sedentario" | "ligero" | "moderado" | "activo" | "muyActivo" | null;
 }
 
@@ -28,7 +29,7 @@ interface UserContextType {
 
 const defaultProfile: UserProfile = {
   nombre: "", edad: "", sexo: null, peso: "", altura: "",
-  objetivo: "", restricciones: "", nivelActividad: null,
+  objetivo: "", restricciones: "", fotoPerfil: "", nivelActividad: null,
 };
 
 const defaultAppState: AppState = {

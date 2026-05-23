@@ -6,6 +6,7 @@ import {
   TextInput, TouchableOpacity, View, Animated, Dimensions
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
+import { router } from "expo-router";
 import { useUser } from "../../context/UserContext";
 
 const API_KEY = "bSJ9FpFxEVb2R84Gwl7wra86l9x97nwO";
@@ -227,6 +228,10 @@ Respondé ÚNICAMENTE con JSON válido, sin markdown:
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
       <View style={s.inner}>
+
+        <TouchableOpacity onPress={() => router.push("/")} style={s.backBtn} activeOpacity={0.7}>
+          <Text style={s.backBtnText}>← Inicio</Text>
+        </TouchableOpacity>
 
         <View style={s.section}>
           <Text style={s.sectionLabel}>Objetivo</Text>
@@ -478,4 +483,6 @@ const styles = (t: any) => StyleSheet.create({
     borderRadius: 10, padding: 13, alignItems: "center",
   },
   btnGuardarText: { fontWeight: "600", color: t.textSecondary, fontSize: 14 },
+  backBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 8, marginBottom: 16 },
+  backBtnText: { fontSize: 14, fontWeight: "600", color: t.textMuted },
 });
